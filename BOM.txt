@@ -1,6 +1,15 @@
 trinket pro 5V
-battery 7.5V or higher (maybe just 9V) (can we shove 9V into the trinket pro and it'll regulate it? YES)
-lumenti 8 pack (60mA at brightest x8 = 420mA, so 450-500mA min. for supply.
+	5V chosen for overall system voltage, maybe could have gotten away with 3.3V
+
+battery LiPo rechargable
+	The charger/power supply allows a range of voltages coming in, but more importantly charges LiPo batts
+	
+PowerBoost 500 Charger
+	   Trinket can only supply 150mA, Lumenati 8 pack wants 420mA MAX
+
+lumenti 8 pack
+	60mA at brightest x8 = 420mA, so 450-500mA min. for supply.
+	
 trigger of some sort (vibration? or simple push button.)
 trigger for special? (purplah!)
 On off switch
