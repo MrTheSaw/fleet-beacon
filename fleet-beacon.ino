@@ -1,3 +1,17 @@
+/*******************************************
+ * User story: User turns on device. User triggers device.
+ * Phase1: Devices flashes a variety of colors, with flashes getting slower over time.
+ * Phase2: Also, as time goes on, the colors flashed narrow down to red, green or blue.
+ * Phase3: Colors are only red green or blue. Flashes are about 1 second long.
+ * Phase4: Final color is chosen. It flashes a number of times, and then comes on
+ * {solid|dancing} until the user hits the button again.
+ * 
+ * Total run time: 2-3 minutes.
+ * Hitting the button at anytime during the run resets the run.
+ * 
+ */
+
+
 /**********************************************************************************
  * Coding convention: Globals needed by more than one function are define on the common globals area
  * Variables which need to persist between loop iterations are declared static.
@@ -25,11 +39,6 @@
 #define HiThr 192
 #define LoThr 64
 
-//Phase thresholds
-byte phase_limits[4] = {150,175,200,250};
-typedef enum { PHASE1 = 0, PHASE2, PHASE3, PHASE4 } phase_t;
-phase_t phase = PHASE1;
-
 
 /***********************************
  * Common globals
@@ -42,10 +51,31 @@ unsigned short index = 0;
 byte MWindex = 0;
 
 _Bool onP = false;
+_Bool buttonHit = false;
 uint32_t off;
 byte colors[COL_ARR_SIZE][3];
 unsigned int current_pixel = 0;
+_Bool cleared = true;
 
+
+/*************************************
+ * Run phase handling
+ */
+
+//Phase thresholds
+byte phase_limits[4] = {150,175,200,250};
+typedef enum { PHASE1 = 0, PHASE2, PHASE3, PHASE4 } phase_t;
+phase_t phase = PHASE1;
+
+phase_t setPhase(short spacing) {
+  for (byte i = 0; i<4; i++) {
+    if (phase_limits[i] == spacing) morse_flash(i);
+  }
+  if (spacing > 0 && spacing < phase_limits[PHASE1]) return PHASE1;
+  if (spacing > phase_limits[PHASE1] && spacing < phase_limits[PHASE2]) return PHASE2;
+  if (spacing > phase_limits[PHASE2] && spacing < phase_limits[PHASE3]) return PHASE3;
+  if (spacing > phase_limits[PHASE3]) return PHASE4;
+}
 
 /************************
  * utility functions
@@ -55,6 +85,7 @@ unsigned int current_pixel = 0;
 int brt(short color_segment) {
   return (int)(color_segment*.75);
 }
+
 
 //Sets the bytes to random values within a threhold to get a variety of colors
 void randomize_color_array() {
@@ -68,16 +99,16 @@ void randomize_color_array() {
 //set one of the bytes to the top threshold.
 //If "definitely" is true, set the other bytes to 0
 void mkRGB(short color) {
-    if (colors[color][0] = HiThr) { colors[color][1] = LoThr; colors[color][2] = LoThr;}
-    else if (colors[color][1] = HiThr) { colors[color][0] = LoThr; colors[color][2] = LoThr;}
-    else if (colors[color][2] = HiThr) { colors[color][0] = LoThr; colors[color][1] = LoThr;}
+    if (colors[color][0] == HiThr) { colors[color][1] = LoThr; colors[color][2] = LoThr;}
+    else if (colors[color][1] == HiThr) { colors[color][0] = LoThr; colors[color][2] = LoThr;}
+    else if (colors[color][2] == HiThr) { colors[color][0] = LoThr; colors[color][1] = LoThr;}
     else {
       colors[color][random(0,3)] = HiThr;
       mkRGB(color);
     }
 }
 
-/*******************************
+/**********************************************************
  * Color Mod Functions. These will appear in the loop().
  * Make sure they save state to either a common globals or a reserved global
  */
@@ -87,7 +118,7 @@ void mkRGB(short color) {
  */
 void hammer(_Bool ensure) {
   //ensure that a color gets changed all the way to r g or b
-  short color = random(0,COL_ARR_SIZE); //0-63 IRL, high number is excluded
+  short color = random(0, COL_ARR_SIZE); //0-63 IRL, high number is excluded
   if (ensure) {
     mkRGB(color);
   } else {
@@ -95,23 +126,23 @@ void hammer(_Bool ensure) {
   }
 }
 
-/*****************************
- * Make everything Exactly Red, Green or Blue
- */
+// Make everything Exactly Red, Green or Blue
 void bigHammer() {
   for (short color=0; color<=COL_ARR_SIZE;color++) {
     mkRGB(color);
   }
 }
 
+
+//This picks the actual last color to be displayed
 void finalBlow() {
-    byte colorUp = random(0,3);
-    uint32_t color = 0xff << 8*colorUp;
-    for (byte d = 5; d > 0; d--) {
-      pack.clear();
-      delay(120);
-      setPixels(&pack, color);
-      delay(120);
+    uint32_t rgb [3] = { 0xc00000, 0x00c000, 0x0000c0 };
+    byte colorUp = 0; // random(0,3);
+    for (byte flashes = 5; flashes > 0; flashes--) {
+      setPixels(&pack, 0);
+      delay(500);
+      setPixels(&pack, rgb[colorUp]);
+      delay(250);
     }
     delay(5000);
     onP = false; 
@@ -136,6 +167,25 @@ uint32_t next_color() {
   return pack.Color(r,g,b);
 }
 
+/**************
+ * sets all pixels to the same color
+ */
+void setPixels (Adafruit_DotStar *stars, uint32_t color) {
+  for (int i = 0; i < PACK_SIZE; i++) {
+    stars->setPixelColor(i, color);
+  }
+}
+
+
+void twirl1 (Adafruit_DotStar *stars, uint32_t color) {
+  for (int i = 0; i < PACK_SIZE; i++) {
+    stars->setPixelColor((i-1)%PACK_SIZE, 0);
+    stars->setPixelColor(i, color);
+    stars->show();
+    delay(32);
+  }
+  stars->setPixelColor(PACK_SIZE-1,0);
+}
 /******
 void playList (short delay_time) {
     if (index > 6) index = 0;
@@ -151,23 +201,12 @@ void playList (short delay_time) {
  */
 void playMaxWell (short delay_time) {
   byte * col = colors[MWindex];
-  setPixels(&pack, pack.Color(col[0], col[1], col[2]));
-  pack.show();
-  delay(delay_time);
+  //setPixels(&pack, pack.Color(col[0], col[1], col[2]));
+  twirl1(&pack, pack.Color(col[0], col[1], col[2]));
+  //pack.show();
+  //delay(delay_time);
   MWindex++; //intentionally wrapping around
 }
-
-
-
-/**************
- * sets all pixels to the same color
- */
-void setPixels (Adafruit_DotStar *stars, uint32_t color) {
-  for (int i = 0; i < PACK_SIZE; i++) {
-    stars->setPixelColor(i, color);
-  }
-}
-
 
 
 
@@ -185,14 +224,46 @@ void flash_diag(short flashes) {
   delay(120); //make some spacing
 }
 
-void handleStopStartButton (void) {
-  onP = !onP;
+void morse_flash(byte digit) {
+  byte where = 0;
+  const short dit = 200;
+  const short dah = 3*dit;
+  const short numbers[10][6] = {
+    {dit, dah, dah, dah, dah, -1},
+    {dit, dit, dah, dah, dah, -1},
+    {dit, dit, dit, dah, dah, -1},
+    {dit, dit, dit, dit, dah, -1},
+    {dit, dit, dit, dit, dit, -1},
+    {dah, dit, dit, dit, dit, -1},
+    {dah, dah, dit, dit, dit, -1},
+    {dah, dah, dah, dit, dit, -1},
+    {dah, dah, dah, dah, dit, -1},
+    {dah, dah, dah, dah, dah, -1}
+  };
+
+  while (numbers[digit][where] != -1) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(numbers[digit][where]);
+    digitalWrite(LED_BUILTIN, LOW);
+    where++;
+    delay(dah);
+  }
+  delay(2*dah);
 }
 
+void handleStopStartButton (void) {
+  buttonHit = true;
+}
+
+void turnOn() {
+  onP = !onP;
+  deBounce();
+  buttonHit = false;
+}
 
 void deBounce ()
 {
-  const int debounceTime = 20;
+  const int debounceTime = 50;
   
   unsigned long now = millis ();
   do
@@ -207,12 +278,7 @@ void deBounce ()
 }  // end of deBounce
 
 
-phase_t setPhase(short spacing) {
-  if (spacing > 0 && spacing < phase_limits[PHASE1]) return PHASE1;
-  if (spacing > phase_limits[PHASE1] && spacing < phase_limits[PHASE2]) return PHASE2;
-  if (spacing > phase_limits[PHASE2] && spacing < phase_limits[PHASE3]) return PHASE3;
-  if (spacing > phase_limits[PHASE3] && spacing < phase_limits[PHASE4]) return PHASE4;
-}
+
 
 /********************************************
  * SETUP
@@ -222,6 +288,8 @@ void setup() {
   clock_prescale_set(clock_div_1); // Enable 16 MHz on Trinket
 #endif
   onP = false;
+  current_pixel = 0;
+  MWindex = 0;
   attachInterrupt(digitalPinToInterrupt(BUTTON), handleStopStartButton, FALLING);
   randomSeed(analogRead(UNCONNECTED_PIN));
   randomize_color_array();
@@ -244,26 +312,14 @@ void reset() {
 }
 
 
-
-_Bool cleared = true;
 /*******************************************
  * LOOP
  */
 void loop() {
 
-  //REPLACE with interrupt
-/*  if ((digitalRead(BUTTON) == LOW) && (oldButtonState == HIGH)) {
-      onP = !onP;
-      digitalWrite(LED_BUILTIN, HIGH);
-      oldButtonState = LOW;
-    } else if ((digitalRead(BUTTON) == HIGH) && (oldButtonState == LOW)) {
-      digitalWrite(LED_BUILTIN, LOW);
-      oldButtonState = HIGH;
-    }
-    delay(5);
-*/
+  if (buttonHit == true) turnOn();
+
   if (onP) {
-    deBounce();
     cleared = false;
     playMaxWell(spacing);
     spacing++;
@@ -272,7 +328,6 @@ void loop() {
       case PHASE2: hammer(true);
                    break;
       case PHASE3: bigHammer();
-                   flash_diag(5);
                    break;
       case PHASE4: finalBlow();
                    break;
@@ -285,7 +340,7 @@ void loop() {
     if (!cleared) {
       reset();
       cleared = true;
-      flash_diag(10);
+      morse_flash(9);
     }
   }
 }
