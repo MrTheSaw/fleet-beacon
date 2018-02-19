@@ -48,27 +48,35 @@
 Adafruit_DotStar pack = Adafruit_DotStar(PACK_SIZE, DATA_PIN, CLOCK_PIN, DOTSTAR_BRG);
 
 unsigned short index = 0;
-byte MWindex = 0;
+uint8_t  MWindex = 0;
 
 _Bool onP = false;
 _Bool buttonHit = false;
 uint32_t off;
-byte colors[COL_ARR_SIZE][3];
+uint8_t colors[COL_ARR_SIZE][3];
+const uint8_t rgb_array[3][3] = {
+  {HiThr,0,0},
+  {0,HiThr,0},
+  {0,0,HiThr},
+};
+ 
 unsigned int current_pixel = 0;
 _Bool cleared = true;
+short spacing = 100;
 
+static uint32_t last_color = 0;
 
 /*************************************
  * Run phase handling
  */
 
 //Phase thresholds
-byte phase_limits[4] = {150,175,200,250};
+uint16_t  phase_limits[4] = {150,175,200,250};
 typedef enum { PHASE1 = 0, PHASE2, PHASE3, PHASE4 } phase_t;
 phase_t phase = PHASE1;
 
 phase_t setPhase(short spacing) {
-  for (byte i = 0; i<4; i++) {
+  for (uint8_t i = 0; i<4; i++) {
     if (phase_limits[i] == spacing) morse_flash(i);
   }
   if (spacing > 0 && spacing < phase_limits[PHASE1]) return PHASE1;
@@ -98,14 +106,28 @@ void randomize_color_array() {
 
 //set one of the bytes to the top threshold.
 //If "definitely" is true, set the other bytes to 0
+//void mkRGB(short color) {
+//    if      (colors[color][0] == HiThr) { colors[color][1] = LoThr; colors[color][2] = LoThr;}
+//    else if (colors[color][1] == HiThr) { colors[color][0] = LoThr; colors[color][2] = LoThr;}
+//    else if (colors[color][2] == HiThr) { colors[color][0] = LoThr; colors[color][1] = LoThr;}
+//    else {
+//      colors[color][random(0,3)] = HiThr;
+//      mkRGB(color);
+//    }
+//}
+
+uint32_t pickRGB() {
+    const uint32_t rgb[3] = { 0xc00000, 0x00c000, 0x0000c0 };
+    uint8_t  colorUp = random(0,3);
+    return rgb[colorUp];
+}
+
 void mkRGB(short color) {
-    if (colors[color][0] == HiThr) { colors[color][1] = LoThr; colors[color][2] = LoThr;}
-    else if (colors[color][1] == HiThr) { colors[color][0] = LoThr; colors[color][2] = LoThr;}
-    else if (colors[color][2] == HiThr) { colors[color][0] = LoThr; colors[color][1] = LoThr;}
-    else {
-      colors[color][random(0,3)] = HiThr;
-      mkRGB(color);
-    }
+    uint8_t  colorUp = random(0,3);
+    colors[color][0] = 0;
+    colors[color][1] = 0;
+    colors[color][2] = 0;
+    colors[color][colorUp] = 0xc0;
 }
 
 /**********************************************************
@@ -114,7 +136,8 @@ void mkRGB(short color) {
  */
 
 /**********************
- * Slowly make all colors either red, green, or blue
+ * Slowly make all colors are either red, green, or blue.
+ * Changes one entry randomly on each loop pass.
  */
 void hammer(_Bool ensure) {
   //ensure that a color gets changed all the way to r g or b
@@ -126,7 +149,7 @@ void hammer(_Bool ensure) {
   }
 }
 
-// Make everything Exactly Red, Green or Blue
+// Make everything Exactly Red, Green or Blue. Should be run exactly once.
 void bigHammer() {
   for (short color=0; color<=COL_ARR_SIZE;color++) {
     mkRGB(color);
@@ -135,37 +158,40 @@ void bigHammer() {
 
 
 //This picks the actual last color to be displayed
-void finalBlow() {
-    uint32_t rgb [3] = { 0xc00000, 0x00c000, 0x0000c0 };
-    byte colorUp = 0; // random(0,3);
-    for (byte flashes = 5; flashes > 0; flashes--) {
+void finalBlow(uint32_t color) {
+    for (uint8_t  flashes = 5; flashes > 0; flashes--) {
       setPixels(&pack, 0);
+      pack.show();
       delay(500);
-      setPixels(&pack, rgb[colorUp]);
+      setPixels(&pack, color);
+      pack.show();
       delay(250);
     }
     delay(5000);
-    onP = false; 
+    //onP = false; 
 }
+
+
+
 
 //Select next color
 
-uint32_t next_color() {
-  static short r=0,g=0,b=0;
-  byte offset = 64;
-  if (b > 255) {
-    b=0;
-    g+=offset;
-  } else b+=offset;
-  if (g > 255) {
-    g=0;
-    r+=offset;
-  }
-  if (r > 255) {
-    r=g=b=0;
-  }
-  return pack.Color(r,g,b);
-}
+//uint32_t next_color() {
+//  static short r=0,g=0,b=0;
+//  uint8_t  offset = 64;
+//  if (b > 255) {
+//    b=0;
+//    g+=offset;
+//  } else b+=offset;
+//  if (g > 255) {
+//    g=0;
+//    r+=offset;
+//  }
+//  if (r > 255) {
+//    r=g=b=0;
+//  }
+//  return pack.Color(r,g,b);
+//}
 
 /**************
  * sets all pixels to the same color
@@ -186,21 +212,24 @@ void twirl1 (Adafruit_DotStar *stars, uint32_t color) {
   }
   stars->setPixelColor(PACK_SIZE-1,0);
 }
-/******
-void playList (short delay_time) {
-    if (index > 6) index = 0;
-  setPixels(pack, next_color());
-  pack.show();
-  delay(delay_time);
-  index++;
+
+void dance (Adafruit_DotStar *stars, uint32_t color) {
+  static int last_pixel = 0;
+  //stars->clear();
+  int next_pixel = random(0,PACK_SIZE);
+  stars->setPixelColor(next_pixel, color);
+  stars->show();
+  stars->setPixelColor(last_pixel, 0);
+  last_pixel = next_pixel;
+  delay(64);
 }
-******/
+
 
 /********
  * Slowly becomes more orderly
  */
 void playMaxWell (short delay_time) {
-  byte * col = colors[MWindex];
+  uint8_t  * col = colors[MWindex];
   //setPixels(&pack, pack.Color(col[0], col[1], col[2]));
   twirl1(&pack, pack.Color(col[0], col[1], col[2]));
   //pack.show();
@@ -209,10 +238,6 @@ void playMaxWell (short delay_time) {
 }
 
 
-
-int button_time = 0;
-_Bool oldButtonState = HIGH;
-short spacing = 100;
 
 void flash_diag(short flashes) {
   for (short i = 0; i< flashes; i++) {
@@ -224,21 +249,21 @@ void flash_diag(short flashes) {
   delay(120); //make some spacing
 }
 
-void morse_flash(byte digit) {
-  byte where = 0;
-  const short dit = 200;
+void morse_flash(uint8_t  digit) {
+  uint8_t  where = 0;
+  const short dit = 100;
   const short dah = 3*dit;
   const short numbers[10][6] = {
-    {dit, dah, dah, dah, dah, -1},
+    {dit, dah, dah, dah, dah, -1}, //1
     {dit, dit, dah, dah, dah, -1},
     {dit, dit, dit, dah, dah, -1},
     {dit, dit, dit, dit, dah, -1},
-    {dit, dit, dit, dit, dit, -1},
+    {dit, dit, dit, dit, dit, -1}, //5
     {dah, dit, dit, dit, dit, -1},
     {dah, dah, dit, dit, dit, -1},
     {dah, dah, dah, dit, dit, -1},
-    {dah, dah, dah, dah, dit, -1},
-    {dah, dah, dah, dah, dah, -1}
+    {dah, dah, dah, dah, dit, -1}, //9
+    {dah, dah, dah, dah, dah, -1}  //0
   };
 
   while (numbers[digit][where] != -1) {
@@ -255,7 +280,17 @@ void handleStopStartButton (void) {
   buttonHit = true;
 }
 
+/**************************
+ * Turn on the sequence, but debounce just once
+ */
+
 void turnOn() {
+  onP = !onP;
+  deBounce();
+  buttonHit = false;
+}
+
+void turnOff() {
   onP = !onP;
   deBounce();
   buttonHit = false;
@@ -293,6 +328,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(BUTTON), handleStopStartButton, FALLING);
   randomSeed(analogRead(UNCONNECTED_PIN));
   randomize_color_array();
+  last_color = pickRGB();
   pinMode(DATA_PIN, OUTPUT);
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
@@ -301,6 +337,7 @@ void setup() {
   
   off = pack.Color(0,0,0);
   pack.begin();
+  pack.setBrightness(HiThr);
   pack.show();
 }
 
@@ -309,6 +346,7 @@ void reset() {
     pack.show();
     spacing = 100;
     randomize_color_array();
+    last_color = pickRGB();
 }
 
 
@@ -316,20 +354,23 @@ void reset() {
  * LOOP
  */
 void loop() {
-
   if (buttonHit == true) turnOn();
 
   if (onP) {
     cleared = false;
-    playMaxWell(spacing);
+    //playMaxWell(spacing);
     spacing++;
     phase = setPhase(spacing);
+    if (spacing == phase_limits[PHASE3]) bigHammer();
+    if (spacing == phase_limits[PHASE4]) finalBlow(last_color);
     switch (phase) {
       case PHASE2: hammer(true);
+                   playMaxWell(spacing);
                    break;
-      case PHASE3: bigHammer();
+      case PHASE3: //bigHammer();
+                   playMaxWell(spacing);
                    break;
-      case PHASE4: finalBlow();
+      case PHASE4: dance(&pack, last_color);
                    break;
       default: hammer(false); //PHASE1
                break;
@@ -340,7 +381,8 @@ void loop() {
     if (!cleared) {
       reset();
       cleared = true;
-      morse_flash(9);
+      morse_flash(4);
+      morse_flash(2);
     }
   }
 }
