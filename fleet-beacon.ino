@@ -20,6 +20,7 @@
 
 #include <Adafruit_DotStar.h>
 #include <avr/power.h>
+#include <avr/sleep.h>
 
 /************************************
  * Hardware defined constants.
@@ -45,7 +46,7 @@
  * i.e. Globals which are being used by more than one routine
  */
 
-Adafruit_DotStar pack = Adafruit_DotStar(PACK_SIZE, DATA_PIN, CLOCK_PIN, DOTSTAR_BRG);
+auto pack = Adafruit_DotStar(PACK_SIZE, DATA_PIN, CLOCK_PIN, DOTSTAR_BRG);
 
 unsigned short index = 0;
 uint8_t  MWindex = 0;
@@ -62,7 +63,7 @@ const uint8_t rgb_array[3][3] = {
  
 unsigned int current_pixel = 0;
 _Bool cleared = true;
-short spacing = 100;
+uint16_t spacing = 100;
 
 static uint32_t last_color = 0;
 
@@ -71,11 +72,11 @@ static uint32_t last_color = 0;
  */
 
 //Phase thresholds
-uint16_t  phase_limits[4] = {150,175,200,250};
-typedef enum { PHASE1 = 0, PHASE2, PHASE3, PHASE4 } phase_t;
+uint16_t phase_limits[4] = {150,175,200,250};
+typedef enum { PHASE1 = 0, PHASE2, PHASE3, PHASE4, PHASE_ERR } phase_t;
 phase_t phase = PHASE1;
 
-phase_t setPhase(short spacing) {
+phase_t getPhase(uint16_t spacing) {
   for (uint8_t i = 0; i<4; i++) {
     if (phase_limits[i] == spacing) morse_flash(i);
   }
@@ -83,6 +84,7 @@ phase_t setPhase(short spacing) {
   if (spacing > phase_limits[PHASE1] && spacing < phase_limits[PHASE2]) return PHASE2;
   if (spacing > phase_limits[PHASE2] && spacing < phase_limits[PHASE3]) return PHASE3;
   if (spacing > phase_limits[PHASE3]) return PHASE4;
+  return PHASE_ERR;
 }
 
 /************************
@@ -228,7 +230,7 @@ void dance (Adafruit_DotStar *stars, uint32_t color) {
 /********
  * Slowly becomes more orderly
  */
-void playMaxWell (short delay_time) {
+void playMaxWell (uint16_t delay_time) {
   uint8_t  * col = colors[MWindex];
   //setPixels(&pack, pack.Color(col[0], col[1], col[2]));
   twirl1(&pack, pack.Color(col[0], col[1], col[2]));
@@ -278,6 +280,7 @@ void morse_flash(uint8_t  digit) {
 
 void handleStopStartButton (void) {
   buttonHit = true;
+  sleep_disable();
 }
 
 /**************************
@@ -333,9 +336,7 @@ void setup() {
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(BUTTON, INPUT_PULLUP);
-  float bright = .75;
   
-  off = pack.Color(0,0,0);
   pack.begin();
   pack.setBrightness(HiThr);
   pack.show();
@@ -358,22 +359,26 @@ void loop() {
 
   if (onP) {
     cleared = false;
-    //playMaxWell(spacing);
     spacing++;
-    phase = setPhase(spacing);
+    //playMaxWell(spacing);
+    phase = getPhase(spacing);
     if (spacing == phase_limits[PHASE3]) bigHammer();
     if (spacing == phase_limits[PHASE4]) finalBlow(last_color);
+    
     switch (phase) {
-      case PHASE2: hammer(true);
-                   playMaxWell(spacing);
-                   break;
-      case PHASE3: //bigHammer();
-                   playMaxWell(spacing);
-                   break;
-      case PHASE4: dance(&pack, last_color);
-                   break;
-      default: hammer(false); //PHASE1
-               break;
+      case PHASE2:  //spacing++;
+                    hammer(true);
+                    playMaxWell(spacing);
+                    break;
+      case PHASE3:  //spacing++;
+                    //bigHammer();
+                    playMaxWell(spacing);
+                    break;
+      case PHASE4:  dance(&pack, last_color);
+                    break;
+      default:  //spacing++;
+                hammer(false); //PHASE1
+                break;
     }
   // If not on  
   } else {
@@ -383,6 +388,8 @@ void loop() {
       cleared = true;
       morse_flash(4);
       morse_flash(2);
+      sleep_enable();
+      sleep_cpu();
     }
   }
 }
