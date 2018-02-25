@@ -77,9 +77,6 @@ typedef enum { PHASE1 = 0, PHASE2, PHASE3, PHASE4, PHASE_ERR } phase_t;
 phase_t phase = PHASE1;
 
 phase_t getPhase(uint16_t spacing) {
-  for (uint8_t i = 0; i<4; i++) {
-    if (phase_limits[i] == spacing) morse_flash(i);
-  }
   if (spacing > 0 && spacing < phase_limits[PHASE1]) return PHASE1;
   if (spacing > phase_limits[PHASE1] && spacing < phase_limits[PHASE2]) return PHASE2;
   if (spacing > phase_limits[PHASE2] && spacing < phase_limits[PHASE3]) return PHASE3;
@@ -280,7 +277,7 @@ void morse_flash(uint8_t  digit) {
 
 void handleStopStartButton (void) {
   buttonHit = true;
-  sleep_disable();
+  //sleep_disable();
 }
 
 /**************************
@@ -359,25 +356,27 @@ void loop() {
 
   if (onP) {
     cleared = false;
-    spacing++;
+    //spacing++;
     //playMaxWell(spacing);
     phase = getPhase(spacing);
-    if (spacing == phase_limits[PHASE3]) bigHammer();
-    if (spacing == phase_limits[PHASE4]) finalBlow(last_color);
+    if (spacing == phase_limits[PHASE1]) morse_flash(2);
+    if (spacing == phase_limits[PHASE3]) { morse_flash(2); bigHammer(); }
+    if (spacing == phase_limits[PHASE4]) { morse_flash(3); finalBlow(last_color); }
     
     switch (phase) {
-      case PHASE2:  //spacing++;
+      case PHASE2:  spacing++;
                     hammer(true);
                     playMaxWell(spacing);
                     break;
-      case PHASE3:  //spacing++;
+      case PHASE3:  spacing++;
                     //bigHammer();
                     playMaxWell(spacing);
                     break;
       case PHASE4:  dance(&pack, last_color);
                     break;
-      default:  //spacing++;
+      default:  spacing++;
                 hammer(false); //PHASE1
+                playMaxWell(spacing);
                 break;
     }
   // If not on  
@@ -388,8 +387,8 @@ void loop() {
       cleared = true;
       morse_flash(4);
       morse_flash(2);
-      sleep_enable();
-      sleep_cpu();
+      //sleep_enable();
+      //sleep_cpu();
     }
   }
 }
