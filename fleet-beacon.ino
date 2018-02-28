@@ -51,8 +51,8 @@ auto pack = Adafruit_DotStar(PACK_SIZE, DATA_PIN, CLOCK_PIN, DOTSTAR_BRG);
 unsigned short index = 0;
 uint8_t  MWindex = 0;
 
-_Bool onP = false;
-_Bool buttonHit = false;
+bool onP = false;
+bool buttonHit = false;
 uint32_t off;
 uint8_t colors[COL_ARR_SIZE][3];
 const uint8_t rgb_array[3][3] = {
@@ -62,7 +62,7 @@ const uint8_t rgb_array[3][3] = {
 };
  
 unsigned int current_pixel = 0;
-_Bool cleared = true;
+bool cleared = true;
 uint16_t spacing = 100;
 
 static uint32_t last_color = 0;
@@ -138,7 +138,7 @@ void mkRGB(short color) {
  * Slowly make all colors are either red, green, or blue.
  * Changes one entry randomly on each loop pass.
  */
-void hammer(_Bool ensure) {
+void hammer(bool ensure) {
   //ensure that a color gets changed all the way to r g or b
   short color = random(0, COL_ARR_SIZE); //0-63 IRL, high number is excluded
   if (ensure) {
@@ -359,9 +359,10 @@ void loop() {
     //spacing++;
     //playMaxWell(spacing);
     phase = getPhase(spacing);
+    if (spacing == 100) morse_flash(1);
     if (spacing == phase_limits[PHASE1]) morse_flash(2);
-    if (spacing == phase_limits[PHASE3]) { morse_flash(2); bigHammer(); }
-    if (spacing == phase_limits[PHASE4]) { morse_flash(3); finalBlow(last_color); }
+    if (spacing == phase_limits[PHASE2]) { morse_flash(3); bigHammer(); }
+    if (spacing == phase_limits[PHASE3]) { morse_flash(4); finalBlow(last_color); }
     
     switch (phase) {
       case PHASE2:  spacing++;
