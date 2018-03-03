@@ -1,5 +1,6 @@
 {
     "board": "adafruit:avr:protrinket5",
     "port": "/dev/cu.usbserial-A6008bj4",
+    "output": "../build",
     "sketch": "fleet-beacon.ino"
 }

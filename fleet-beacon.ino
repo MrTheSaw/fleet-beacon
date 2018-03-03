@@ -36,7 +36,8 @@
 //how many dotstars or equiv
 #define PACK_SIZE 8
 #define COL_ARR_SIZE 64
-//Brightness upper threshold, raise of OVERALL brightness is too low. 255 is MAX, higher might produce errors
+//Brightness upper threshold, raise of OVERALL brightness is too low.
+//255 is MAX, higher might produce errors
 #define HiThr 192
 #define LoThr 64
 
@@ -67,22 +68,6 @@ uint16_t spacing = 100;
 
 static uint32_t last_color = 0;
 
-/*************************************
- * Run phase handling
- */
-
-//Phase thresholds
-uint16_t phase_limits[4] = {150,175,200,250};
-typedef enum { PHASE1 = 0, PHASE2, PHASE3, PHASE4, PHASE_ERR } phase_t;
-phase_t phase = PHASE1;
-
-phase_t getPhase(uint16_t spacing) {
-  if (spacing > 0 && spacing < phase_limits[PHASE1]) return PHASE1;
-  if (spacing > phase_limits[PHASE1] && spacing < phase_limits[PHASE2]) return PHASE2;
-  if (spacing > phase_limits[PHASE2] && spacing < phase_limits[PHASE3]) return PHASE3;
-  if (spacing > phase_limits[PHASE3]) return PHASE4;
-  return PHASE_ERR;
-}
 
 /************************
  * utility functions
@@ -314,6 +299,44 @@ void deBounce ()
 
 
 
+/*****************************************************************************************
+ * ***************************************************************************************
+ * Run phase handling. This is where the actions are dispatched.
+ */
+
+//Phase thresholds
+uint16_t phase_limits[4] = {6000,12000,18000,34000}; //milliseconds from start
+uint8_t phase = 0;
+uint32_t start_time;
+
+//To be run once at the start of a phase
+void (*(phase_hook[]))() = {
+  [] () { morse_flash(phase); },
+  [] () { morse_flash(phase); },
+  [] () { morse_flash(phase); bigHammer(); },
+  [] () { morse_flash(phase); finalBlow(last_color); }
+};
+
+//To be run on every loop iteration
+void (*(phase_action[]))() = {
+  [] () { hammer(false); playMaxWell(spacing); },
+  [] () { hammer(true);playMaxWell(spacing); },
+  [] () { playMaxWell(spacing); },
+  [] () { dance(&pack, last_color); }
+};
+
+
+void setPhase() {
+  if (millis() - start_time > phase_limits[phase]) {
+    phase++;
+    if (phase > sizeof(phase_limits)) {
+      morse_flash(0);
+      reset();
+    }
+    phase_hook[phase]();
+  }
+}
+
 
 /********************************************
  * SETUP
@@ -322,6 +345,7 @@ void setup() {
 #if defined(__AVR_ATtiny85__) && (F_CPU == 16000000L)
   clock_prescale_set(clock_div_1); // Enable 16 MHz on Trinket
 #endif
+  start_time = millis();
   onP = false;
   current_pixel = 0;
   MWindex = 0;
@@ -340,6 +364,9 @@ void setup() {
 }
 
 void reset() {
+    onP = false;
+    start_time = millis();
+    phase = 0;
     pack.clear();
     pack.show();
     spacing = 100;
@@ -356,30 +383,10 @@ void loop() {
 
   if (onP) {
     cleared = false;
-    //spacing++;
+    setPhase();
+    spacing++;
     //playMaxWell(spacing);
-    phase = getPhase(spacing);
-    if (spacing == 100) morse_flash(1);
-    if (spacing == phase_limits[PHASE1]) morse_flash(2);
-    if (spacing == phase_limits[PHASE2]) { morse_flash(3); bigHammer(); }
-    if (spacing == phase_limits[PHASE3]) { morse_flash(4); finalBlow(last_color); }
-    
-    switch (phase) {
-      case PHASE2:  spacing++;
-                    hammer(true);
-                    playMaxWell(spacing);
-                    break;
-      case PHASE3:  spacing++;
-                    //bigHammer();
-                    playMaxWell(spacing);
-                    break;
-      case PHASE4:  dance(&pack, last_color);
-                    break;
-      default:  spacing++;
-                hammer(false); //PHASE1
-                playMaxWell(spacing);
-                break;
-    }
+    phase_action[phase]();
   // If not on  
   } else {
     //clean up if canceled
