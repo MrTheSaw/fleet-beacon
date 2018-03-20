@@ -19,8 +19,14 @@
  */
 
 #include <Adafruit_DotStar.h>
+#include <LiquidCrystal.h>
 #include <avr/power.h>
 #include <avr/sleep.h>
+#include <avr/wdt.h>
+
+
+#define FB_DEBUG 1
+
 
 /************************************
  * Hardware defined constants.
@@ -38,7 +44,7 @@
 #define COL_ARR_SIZE 64
 //Brightness upper threshold, raise of OVERALL brightness is too low.
 //255 is MAX, higher might produce errors
-#define HiThr 192
+#define HiThr 255
 #define LoThr 64
 
 
@@ -49,11 +55,39 @@
 
 auto pack = Adafruit_DotStar(PACK_SIZE, DATA_PIN, CLOCK_PIN, DOTSTAR_BRG);
 
+#if FB_DEBUG
+LiquidCrystal lcd(8,6,9,10,11,12);
+
+void dbg_lcdwrite(uint8_t x, uint8_t y, const char message[]) {
+  lcd.setCursor(x,y);
+  lcd.print(message);
+}
+
+void dbg_lcdspin(uint8_t x, uint8_t y, const char spin_char) {
+  lcd.setCursor(x,y);
+  lcd.print(spin_char);
+}
+
+void dbg_lcdwrite(uint8_t x, uint8_t y, int value) {
+  lcd.setCursor(x,y);
+  lcd.print(value);
+}
+
+
+#else
+void dbg_lcdwrite(uint8_t x, uint8_t y, const char[] message) {}
+void dbg_lcdwrite(uint8_t x, uint8_t y, int value) {}
+#endif
+
+
+uint32_t loop_count = 0;
 unsigned short index = 0;
 uint8_t  MWindex = 0;
 
-bool onP = false;
-bool buttonHit = false;
+uint32_t start_time;
+
+volatile bool onP = false;
+volatile uint8_t buttonHit = 0;
 uint32_t off;
 uint8_t colors[COL_ARR_SIZE][3];
 const uint8_t rgb_array[3][3] = {
@@ -83,7 +117,7 @@ int brt(short color_segment) {
 void randomize_color_array() {
   for (short outer = 0; outer <= COL_ARR_SIZE - 1; outer++) {
     for (short inner = 0; inner <= 2; inner++) {
-      colors[outer][inner] = random(64,190);
+      colors[outer][inner] = random(0,4) * 64;
     }
   }
 }
@@ -114,7 +148,7 @@ void mkRGB(short color) {
     colors[color][colorUp] = 0xc0;
 }
 
-/**********************************************************
+/*********************************************************************************************
  * Color Mod Functions. These will appear in the loop().
  * Make sure they save state to either a common globals or a reserved global
  */
@@ -134,10 +168,11 @@ void hammer(bool ensure) {
 }
 
 // Make everything Exactly Red, Green or Blue. Should be run exactly once.
-void bigHammer() {
+void bigBlow() {
   for (short color=0; color<=COL_ARR_SIZE;color++) {
     mkRGB(color);
   }
+  dbg_lcdwrite(11,1,"BB");
 }
 
 
@@ -186,7 +221,9 @@ void setPixels (Adafruit_DotStar *stars, uint32_t color) {
   }
 }
 
-
+/**********************************************************************
+ * LED display routines
+ */
 void twirl1 (Adafruit_DotStar *stars, uint32_t color) {
   for (int i = 0; i < PACK_SIZE; i++) {
     stars->setPixelColor((i-1)%PACK_SIZE, 0);
@@ -216,12 +253,17 @@ void playMaxWell (uint16_t delay_time) {
   uint8_t  * col = colors[MWindex];
   //setPixels(&pack, pack.Color(col[0], col[1], col[2]));
   twirl1(&pack, pack.Color(col[0], col[1], col[2]));
-  //pack.show();
   //delay(delay_time);
   MWindex++; //intentionally wrapping around
 }
 
 
+/*******************************************************************
+ * Diagnostic helpers
+ */
+
+//For a busy spinner
+auto spin_frame = ".oO0"; //had to escape the backslash
 
 void flash_diag(short flashes) {
   for (short i = 0; i< flashes; i++) {
@@ -260,8 +302,12 @@ void morse_flash(uint8_t  digit) {
   delay(2*dah);
 }
 
+/********************************************
+ * Button ISR and helpers
+ */
+
 void handleStopStartButton (void) {
-  buttonHit = true;
+  buttonHit = 1;
   //sleep_disable();
 }
 
@@ -272,13 +318,14 @@ void handleStopStartButton (void) {
 void turnOn() {
   onP = !onP;
   deBounce();
-  buttonHit = false;
+  buttonHit = 0;
+  start_time = millis();
 }
 
 void turnOff() {
   onP = !onP;
   deBounce();
-  buttonHit = false;
+  buttonHit = 0;
 }
 
 void deBounce ()
@@ -301,38 +348,45 @@ void deBounce ()
 
 /*****************************************************************************************
  * ***************************************************************************************
- * Run phase handling. This is where the actions are dispatched.
+ * Run phase handling. This is where the actions and hooks are dispatched.
  */
 
 //Phase thresholds
-uint16_t phase_limits[4] = {6000,12000,18000,34000}; //milliseconds from start
+uint16_t phase_limits[4] = {10000,20000,30000,50000}; //milliseconds from start
 uint8_t phase = 0;
-uint32_t start_time;
+
+
+
+/************************************************
+ * phase_hook and phase_action are vectors of lambdas. The number of members
+ *  each corresponds to the phases demarcated in the phase_limits.
+*/
 
 //To be run once at the start of a phase
 void (*(phase_hook[]))() = {
-  [] () { morse_flash(phase); },
-  [] () { morse_flash(phase); },
-  [] () { morse_flash(phase); bigHammer(); },
-  [] () { morse_flash(phase); finalBlow(last_color); }
+  [] () { },
+  [] () { },
+  [] () { bigBlow(); },
+  [] () { finalBlow(last_color); }
 };
 
 //To be run on every loop iteration
 void (*(phase_action[]))() = {
-  [] () { hammer(false); playMaxWell(spacing); },
-  [] () { hammer(true);playMaxWell(spacing); },
-  [] () { playMaxWell(spacing); },
+  [] () { hammer(false); playMaxWell(spacing); spacing++; },
+  [] () { hammer(true); playMaxWell(spacing); spacing++; },
+  [] () { playMaxWell(spacing); spacing++; },
   [] () { dance(&pack, last_color); }
 };
 
 
 void setPhase() {
+  if (phase == ((sizeof(phase_limits)/(sizeof(*phase_limits))-1))) { return; }
   if (millis() - start_time > phase_limits[phase]) {
     phase++;
-    if (phase > sizeof(phase_limits)) {
-      morse_flash(0);
-      reset();
-    }
+    //dbg_lcdwrite(14,0);)
+    //DBG(lcd.print((sizeof(phase_limits)/(sizeof(*phase_limits))-1));)
+    dbg_lcdwrite(6+phase,0,phase);
+    dbg_lcdwrite(0,1,millis() - start_time);
     phase_hook[phase]();
   }
 }
@@ -345,19 +399,28 @@ void setup() {
 #if defined(__AVR_ATtiny85__) && (F_CPU == 16000000L)
   clock_prescale_set(clock_div_1); // Enable 16 MHz on Trinket
 #endif
-  start_time = millis();
+#if FB_DEBUG
+  lcd.begin(16,2,LCD_5x10DOTS);
+#endif
+  dbg_lcdwrite(0,0,"GO");
+  
+  //start_time = millis();
+  
   onP = false;
+  dbg_lcdwrite(4,0, onP?"T":"F");
+  
   current_pixel = 0;
   MWindex = 0;
-  attachInterrupt(digitalPinToInterrupt(BUTTON), handleStopStartButton, FALLING);
   randomSeed(analogRead(UNCONNECTED_PIN));
   randomize_color_array();
   last_color = pickRGB();
+  
   pinMode(DATA_PIN, OUTPUT);
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(BUTTON, INPUT_PULLUP);
-  
+  pinMode(BUTTON, INPUT_PULLUP); //with pullup, When the signal goes LOW, the button is being pressed
+  attachInterrupt(digitalPinToInterrupt(BUTTON), handleStopStartButton, FALLING);
+
   pack.begin();
   pack.setBrightness(HiThr);
   pack.show();
@@ -365,8 +428,10 @@ void setup() {
 
 void reset() {
     onP = false;
-    start_time = millis();
+    dbg_lcdwrite(0,1,start_time);
+
     phase = 0;
+    dbg_lcdwrite(0,1,"Reset");
     pack.clear();
     pack.show();
     spacing = 100;
@@ -375,19 +440,30 @@ void reset() {
 }
 
 
+/*********************************************
+ * Hard reset: enables the watchdog timer for a very short time,
+ * and never resets it. This causes the WD to do a full reset of the system,
+ * clearing registers, and whatnot. Recommended by Atmel staff.
+ */ 
+void system_reset (void) {
+  wdt_enable(WDTO_30MS);
+  while(1) {};
+} 
+
 /*******************************************
  * LOOP
  */
 void loop() {
-  if (buttonHit == true) turnOn();
+
+  if (buttonHit == 1) turnOn();
 
   if (onP) {
+    dbg_lcdspin(15,1, spin_frame[loop_count%4]);
+
     cleared = false;
-    setPhase();
-    spacing++;
-    //playMaxWell(spacing);
     phase_action[phase]();
-  // If not on  
+    setPhase();
+  // If turned off 
   } else {
     //clean up if canceled
     if (!cleared) {
@@ -399,5 +475,7 @@ void loop() {
       //sleep_cpu();
     }
   }
+
+  loop_count++;
 }
   
