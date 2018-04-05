@@ -2,7 +2,8 @@
     "configurations": [
         {
             "name": "Mac",
-            "includePath": ["/Users/hacksaw/Documents/Arduino/libraries/Adafruit_DotStar/",
+            "includePath": [
+                "/Users/hacksaw/Documents/Arduino/libraries/Adafruit_DotStar/",
                 "/Applications/Arduino.app/Contents/Java/libraries/LiquidCrystal/src/",
                 "/Applications/Arduino.app/Contents/Java/hardware/tools/avr/avr/include/",
                 "/Applications/Arduino.app/Contents/Java/hardware/tools/avr/lib/avr-gcc/7/gcc/avr/7.3.0/include",
@@ -20,7 +21,10 @@
             "macFrameworkPath": [
                 "/System/Library/Frameworks",
                 "/Library/Frameworks"
-            ]
+            ],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c11",
+            "cppStandard": "c++17"
         }
     ],
     "version": 3

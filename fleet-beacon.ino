@@ -86,7 +86,7 @@ uint8_t  MWindex = 0;
 
 uint32_t start_time;
 
-volatile bool onP = false;
+volatile uint8_t onP = 0;
 volatile uint8_t buttonHit = 0;
 uint32_t off;
 uint8_t colors[COL_ARR_SIZE][3];
@@ -169,7 +169,7 @@ void hammer(bool ensure) {
 
 // Make everything Exactly Red, Green or Blue. Should be run exactly once.
 void bigBlow() {
-  for (short color=0; color<=COL_ARR_SIZE;color++) {
+  for (short color=0; color < COL_ARR_SIZE; color++) {
     mkRGB(color);
   }
   dbg_lcdwrite(11,1,"BB");
@@ -316,16 +316,17 @@ void handleStopStartButton (void) {
  */
 
 void turnOn() {
-  onP = !onP;
+  onP = 1;
   deBounce();
   buttonHit = 0;
   start_time = millis();
 }
 
 void turnOff() {
-  onP = !onP;
+  onP = 0;
   deBounce();
   buttonHit = 0;
+  setup();
 }
 
 void deBounce ()
@@ -379,6 +380,35 @@ void (*(phase_action[]))() = {
 };
 
 
+// Action_list_item says do action_list_tem.action() action_list_item.times
+// by Convention, if times = 0, do forever.
+struct action_list_item {
+  uint16_t times;
+  void (*action)();
+} action_list[] {
+  { 25, [] () { hammer(false); playMaxWell(spacing); spacing++; } },
+  { 25, [] () { hammer(true); playMaxWell(spacing); spacing++; } },
+  { 1, [] () { bigBlow(); }},
+  { 25, [] () { playMaxWell(spacing); spacing++; }},
+  { 1, [] () { finalBlow(last_color); }},
+  { 0, [] () { dance(&pack, last_color); }}
+};
+
+
+void action_player () {
+  for (auto item: action_list) {
+    if (item.times != 0) {
+      for (auto i = item.times; i > 0; i--) {
+        item.action();
+        if (buttonHit == 1) { turnOff(); }
+      }
+    } else {
+      //.times == 0, do this forever
+      while(true) { item.action(); }
+    }
+  }
+}
+
 void setPhase() {
   if (phase == ((sizeof(phase_limits)/(sizeof(*phase_limits))-1))) { return; }
   if (millis() - start_time > phase_limits[phase]) {
@@ -386,7 +416,7 @@ void setPhase() {
     //dbg_lcdwrite(14,0);)
     //DBG(lcd.print((sizeof(phase_limits)/(sizeof(*phase_limits))-1));)
     dbg_lcdwrite(6+phase,0,phase);
-    dbg_lcdwrite(0,1,millis() - start_time);
+    dbg_lcdwrite(1,1,millis() - start_time);
     phase_hook[phase]();
   }
 }
@@ -406,7 +436,7 @@ void setup() {
   
   //start_time = millis();
   
-  onP = false;
+  onP = 0;
   dbg_lcdwrite(4,0, onP?"T":"F");
   
   current_pixel = 0;
@@ -419,25 +449,14 @@ void setup() {
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(BUTTON, INPUT_PULLUP); //with pullup, When the signal goes LOW, the button is being pressed
-  attachInterrupt(digitalPinToInterrupt(BUTTON), handleStopStartButton, FALLING);
 
   pack.begin();
   pack.setBrightness(HiThr);
   pack.show();
+  //This is down here to put a tiny delay between setting the pin mode and attaching the interrupt
+  attachInterrupt(digitalPinToInterrupt(BUTTON), handleStopStartButton, FALLING);
 }
 
-void reset() {
-    onP = false;
-    dbg_lcdwrite(0,1,start_time);
-
-    phase = 0;
-    dbg_lcdwrite(0,1,"Reset");
-    pack.clear();
-    pack.show();
-    spacing = 100;
-    randomize_color_array();
-    last_color = pickRGB();
-}
 
 
 /*********************************************
@@ -450,6 +469,19 @@ void system_reset (void) {
   while(1) {};
 } 
 
+void reset() {
+    onP = 0;
+    dbg_lcdwrite(1,1,start_time);
+
+    phase = 0;
+    dbg_lcdwrite(0,1,"R");
+    pack.clear();
+    pack.show();
+    spacing = 100;
+    randomize_color_array();
+    last_color = pickRGB();
+}
+
 /*******************************************
  * LOOP
  */
@@ -457,12 +489,13 @@ void loop() {
 
   if (buttonHit == 1) turnOn();
 
-  if (onP) {
+  if (onP != 0) {
     dbg_lcdspin(15,1, spin_frame[loop_count%4]);
 
     cleared = false;
-    phase_action[phase]();
-    setPhase();
+    action_player();
+    //phase_action[phase]();
+    //setPhase();
   // If turned off 
   } else {
     //clean up if canceled
