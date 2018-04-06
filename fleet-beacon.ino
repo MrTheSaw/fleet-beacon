@@ -88,14 +88,24 @@ uint32_t start_time;
 
 volatile uint8_t onP = 0;
 volatile uint8_t buttonHit = 0;
-uint32_t off;
+
 uint8_t colors[COL_ARR_SIZE][3];
 const uint8_t rgb_array[3][3] = {
   {HiThr,0,0},
   {0,HiThr,0},
   {0,0,HiThr},
 };
- 
+
+
+const uint32_t RED = 0xff0000;
+const uint32_t GREEN = 0x00ff00;
+const uint32_t BLUE = 0x0000ff;
+const uint32_t MAGENTA = 0xff00ff;
+const uint32_t YELLOW = 0xffff00;
+const uint32_t CYAN = 0x00ffff;
+const uint32_t PURPLE = 0x8800ff;
+const uint32_t OFF = 0x000000;
+
 unsigned int current_pixel = 0;
 bool cleared = true;
 uint16_t spacing = 100;
@@ -245,6 +255,20 @@ void dance (Adafruit_DotStar *stars, uint32_t color) {
   delay(64);
 }
 
+void twist8 (Adafruit_DotStar *stars) {
+  static uint32_t dancers[7] = {RED, GREEN, BLUE, OFF, BLUE, RED, GREEN};
+  static uint8_t offset = 0;
+  //The lumenati has the number 1 pixel in the center, and the rest go around in order.
+  for (uint8_t i = 0; i<7; i++) {
+    stars->setPixelColor((i+offset)%7+1, dancers[i]);
+  }
+  stars->setPixelColor(0, dancers[offset%3]);
+  stars->show();
+  delay(166);
+  if (offset == 6) { offset = 0; }
+  else { offset++; }
+}
+
 
 /********
  * Slowly becomes more orderly
@@ -326,6 +350,8 @@ void turnOff() {
   onP = 0;
   deBounce();
   buttonHit = 0;
+  pack.clear();
+  pack.show();
   setup();
 }
 
@@ -386,7 +412,7 @@ struct action_list_item {
   uint16_t times;
   void (*action)();
 } action_list[] {
-  { 25, [] () { hammer(false); playMaxWell(spacing); spacing++; } },
+  { 150, [] () { twist8(&pack); spacing++; } },
   { 25, [] () { hammer(true); playMaxWell(spacing); spacing++; } },
   { 1, [] () { bigBlow(); }},
   { 25, [] () { playMaxWell(spacing); spacing++; }},
@@ -400,11 +426,14 @@ void action_player () {
     if (item.times != 0) {
       for (auto i = item.times; i > 0; i--) {
         item.action();
-        if (buttonHit == 1) { turnOff(); }
+        if (buttonHit == 1) { turnOff(); return;}
       }
     } else {
       //.times == 0, do this forever
-      while(true) { item.action(); }
+      while(true) {
+        item.action();
+        if (buttonHit == 1) { turnOff(); return;}
+      }
     }
   }
 }
@@ -500,7 +529,7 @@ void loop() {
   } else {
     //clean up if canceled
     if (!cleared) {
-      reset();
+      //reset();
       cleared = true;
       morse_flash(4);
       morse_flash(2);
