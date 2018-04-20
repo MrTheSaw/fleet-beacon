@@ -11,7 +11,7 @@
  * 
  */
 
-#define FB_DEBUG 1
+#define FB_DEBUG 0
 
 /**********************************************************************************
  * Coding convention: Globals needed by more than one function are define on the common globals area
@@ -20,9 +20,7 @@
  */
 
 #include <Adafruit_DotStar.h>
-#if FB_DEBUG
 #include <LiquidCrystal.h>
-#endif
 #include <avr/power.h>
 #include <avr/sleep.h>
 #include <avr/wdt.h>
@@ -77,8 +75,11 @@ void dbg_lcdwrite(uint8_t x, uint8_t y, int value) {
 
 
 #else
-void dbg_lcdwrite(uint8_t x, uint8_t y, const char[] message) {}
-void dbg_lcdwrite(uint8_t x, uint8_t y, int value) {}
+//No debug, define these funcations out of existance.
+#define dbg_lcdwrite(x,y,z) 
+#define dbg_lcdspin(x,y,z) 
+//void dbg_lcdwrite(uint8_t x, uint8_t y, const char[] message) {}
+//void dbg_lcdwrite(uint8_t x, uint8_t y, int value) {}
 #endif
 
 
@@ -110,7 +111,7 @@ const uint32_t OFF = 0x000000;
 
 unsigned int current_pixel = 0;
 bool cleared = true;
-uint16_t spacing = 100;
+uint16_t spacing = 100; //set in setup(), so this may not matter
 
 static uint32_t last_color = 0;
 
@@ -236,12 +237,12 @@ void setPixels (Adafruit_DotStar *stars, uint32_t color) {
 /**********************************************************************
  * LED display routines
  */
-void twirl1 (Adafruit_DotStar *stars, uint32_t color) {
+void twirl1 (Adafruit_DotStar *stars, uint32_t color, uint16_t delay_time) {
   for (int i = 0; i < PACK_SIZE; i++) {
     stars->setPixelColor((i-1)%PACK_SIZE, 0);
     stars->setPixelColor(i, color);
     stars->show();
-    delay(32);
+    delay(delay_time);
   }
   stars->setPixelColor(PACK_SIZE-1,0);
 }
@@ -296,8 +297,7 @@ void circle8 (Adafruit_DotStar *stars) {
 void playMaxWell (uint16_t delay_time) {
   uint8_t  * col = colors[MWindex];
   //setPixels(&pack, pack.Color(col[0], col[1], col[2]));
-  twirl1(&pack, pack.Color(col[0], col[1], col[2]));
-  //delay(delay_time);
+  twirl1(&pack, pack.Color(col[0], col[1], col[2]), delay_time);
   MWindex++; //intentionally wrapping around
 }
 
@@ -432,10 +432,10 @@ struct action_list_item {
   uint16_t times;
   void (*action)();
 } action_list[] {
-  { 200, [] () { twist8(&pack); spacing++; } },
-  { 300, [] () { circle8(&pack); spacing++; } },
+  { 20, [] () { twist8(&pack); } },
+  { 30, [] () { circle8(&pack); } },
   { 1, [] () { bigBlow(); }},
-  { 200, [] () { playMaxWell(spacing); spacing++; }},
+  { 200, [] () { playMaxWell(spacing/4); spacing++; }},
   { 1, [] () { finalBlow(last_color); }},
   { 0, [] () { dance(&pack, last_color); }}
 };
@@ -495,6 +495,7 @@ void setup() {
   
   current_pixel = 0;
   MWindex = 0;
+  spacing = 100;
   randomSeed(analogRead(UNCONNECTED_PIN));
   randomize_color_array();
   last_color = pickRGB();
@@ -526,7 +527,7 @@ void reset() {
     dbg_lcdwrite(0,1,"R");
     pack.clear();
     pack.show();
-    spacing = 100;
+    spacing = 5;
     randomize_color_array();
     last_color = pickRGB();
 }
