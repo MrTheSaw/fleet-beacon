@@ -234,6 +234,12 @@ void setPixels (Adafruit_DotStar *stars, uint32_t color) {
   }
 }
 
+
+
+
+
+
+
 /**********************************************************************
  * LED display routines
  */
@@ -259,7 +265,7 @@ void dance (Adafruit_DotStar *stars, uint32_t color) {
 }
 
 void twist8 (Adafruit_DotStar *stars) {
-  static uint32_t dancers[7] = {RED, GREEN, BLUE, OFF, BLUE, RED, GREEN};
+  static uint32_t dancers[7] = {RED, GREEN, BLUE, OFF, CYAN, MAGENTA, YELLOW};
   static uint8_t offset = 0;
   //The lumenati has the number 1 pixel in the center, and the rest go around in order.
   for (uint8_t i = 0; i<7; i++) {
@@ -275,11 +281,15 @@ void twist8 (Adafruit_DotStar *stars) {
 
 void circle8 (Adafruit_DotStar *stars) {
   static uint8_t offset = 0;
-  //turn off the center
-  stars->setPixelColor(0, OFF);
-  
   //turning off leds individually might be silly with the lumenati.
   stars->clear();
+ 
+  //turn off the center or not
+  if (offset%6 == 0)
+    { stars->setPixelColor(0, PURPLE); }
+  else
+    { stars->setPixelColor(0, OFF); }
+  
   //turn on RGB, spaced
   stars->setPixelColor((offset)%7+1, RED);
   stars->setPixelColor((offset+2)%7+1, GREEN);
@@ -295,7 +305,8 @@ void circle8 (Adafruit_DotStar *stars) {
  * Slowly becomes more orderly
  */
 void playMaxWell (uint16_t delay_time) {
-  uint8_t  * col = colors[MWindex];
+  //uint8_t  * col = colors[MWindex];
+  const uint8_t * col = rgb_array[MWindex%3];
   //setPixels(&pack, pack.Color(col[0], col[1], col[2]));
   twirl1(&pack, pack.Color(col[0], col[1], col[2]), delay_time);
   MWindex++; //intentionally wrapping around
@@ -432,8 +443,8 @@ struct action_list_item {
   uint16_t times;
   void (*action)();
 } action_list[] {
-  { 20, [] () { twist8(&pack); } },
-  { 30, [] () { circle8(&pack); } },
+  { 200, [] () { twist8(&pack); } },
+  { 300, [] () { circle8(&pack); } },
   { 1, [] () { bigBlow(); }},
   { 200, [] () { playMaxWell(spacing/4); spacing++; }},
   { 1, [] () { finalBlow(last_color); }},
