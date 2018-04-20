@@ -11,6 +11,7 @@
  * 
  */
 
+#define FB_DEBUG 1
 
 /**********************************************************************************
  * Coding convention: Globals needed by more than one function are define on the common globals area
@@ -19,13 +20,14 @@
  */
 
 #include <Adafruit_DotStar.h>
+#if FB_DEBUG
 #include <LiquidCrystal.h>
+#endif
 #include <avr/power.h>
 #include <avr/sleep.h>
 #include <avr/wdt.h>
 
 
-#define FB_DEBUG 1
 
 
 /************************************
@@ -53,7 +55,7 @@
  * i.e. Globals which are being used by more than one routine
  */
 
-auto pack = Adafruit_DotStar(PACK_SIZE, DATA_PIN, CLOCK_PIN, DOTSTAR_BRG);
+auto pack = Adafruit_DotStar(PACK_SIZE, DATA_PIN, CLOCK_PIN, DOTSTAR_BGR);
 
 #if FB_DEBUG
 LiquidCrystal lcd(8,6,9,10,11,12);
@@ -196,7 +198,7 @@ void finalBlow(uint32_t color) {
       pack.show();
       delay(250);
     }
-    delay(5000);
+    delay(3000);
     //onP = false; 
 }
 
@@ -269,6 +271,24 @@ void twist8 (Adafruit_DotStar *stars) {
   else { offset++; }
 }
 
+
+void circle8 (Adafruit_DotStar *stars) {
+  static uint8_t offset = 0;
+  //turn off the center
+  stars->setPixelColor(0, OFF);
+  
+  //turning off leds individually might be silly with the lumenati.
+  stars->clear();
+  //turn on RGB, spaced
+  stars->setPixelColor((offset)%7+1, RED);
+  stars->setPixelColor((offset+2)%7+1, GREEN);
+  stars->setPixelColor((offset+4)%7+1, BLUE);
+  stars->show();
+  
+  delay(166);
+  if (offset == 6) { offset = 0; }
+  else { offset++; }
+}
 
 /********
  * Slowly becomes more orderly
@@ -412,10 +432,10 @@ struct action_list_item {
   uint16_t times;
   void (*action)();
 } action_list[] {
-  { 150, [] () { twist8(&pack); spacing++; } },
-  { 25, [] () { hammer(true); playMaxWell(spacing); spacing++; } },
+  { 200, [] () { twist8(&pack); spacing++; } },
+  { 300, [] () { circle8(&pack); spacing++; } },
   { 1, [] () { bigBlow(); }},
-  { 25, [] () { playMaxWell(spacing); spacing++; }},
+  { 200, [] () { playMaxWell(spacing); spacing++; }},
   { 1, [] () { finalBlow(last_color); }},
   { 0, [] () { dance(&pack, last_color); }}
 };
@@ -465,22 +485,22 @@ void setup() {
   
   //start_time = millis();
   
+  pinMode(DATA_PIN, OUTPUT);
+  pinMode(CLOCK_PIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(BUTTON, INPUT_PULLUP); //with pullup, When the signal goes LOW, the button is being pressed
+
   onP = 0;
-  dbg_lcdwrite(4,0, onP?"T":"F");
+  //dbg_lcdwrite(4,0, onP?"T":"F");
   
   current_pixel = 0;
   MWindex = 0;
   randomSeed(analogRead(UNCONNECTED_PIN));
   randomize_color_array();
   last_color = pickRGB();
-  
-  pinMode(DATA_PIN, OUTPUT);
-  pinMode(CLOCK_PIN, OUTPUT);
-  pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(BUTTON, INPUT_PULLUP); //with pullup, When the signal goes LOW, the button is being pressed
 
   pack.begin();
-  pack.setBrightness(HiThr);
+  pack.setBrightness(HiThr/2);
   pack.show();
   //This is down here to put a tiny delay between setting the pin mode and attaching the interrupt
   attachInterrupt(digitalPinToInterrupt(BUTTON), handleStopStartButton, FALLING);
@@ -519,7 +539,7 @@ void loop() {
   if (buttonHit == 1) turnOn();
 
   if (onP != 0) {
-    dbg_lcdspin(15,1, spin_frame[loop_count%4]);
+    //dbg_lcdspin(15,1, spin_frame[loop_count%4]);
 
     cleared = false;
     action_player();
@@ -531,8 +551,7 @@ void loop() {
     if (!cleared) {
       //reset();
       cleared = true;
-      morse_flash(4);
-      morse_flash(2);
+      flash_diag(2);
       //sleep_enable();
       //sleep_cpu();
     }
