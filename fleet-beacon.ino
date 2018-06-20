@@ -574,6 +574,7 @@ void loop() {
   if (buttonHit == 1) turnOn();
 
   if (onP != 0) {
+    analogWrite(BUTTON_LED, 0);
     //dbg_lcdspin(15,1, spin_frame[loop_count%4]);
 
     cleared = false;
