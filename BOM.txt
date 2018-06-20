@@ -6,11 +6,15 @@ battery LiPo rechargable
 	
 PowerBoost 500 Charger
 	   Trinket can only supply 150mA, Lumenati 8 pack wants 420mA MAX
+	   Trinket/Itsy back pack really a 3.3V device, pushing it to do 5.
+	   Adafruit LiPo "backpack" can't supply enough current.
 
 lumenti 8 pack
 	60mA at brightest x8 = 420mA, so 450-500mA min. for supply.
+	If we wanted a larger array, we might need to PB 1000, or maybe have to make our own.
 	
-trigger of some sort (vibration? or simple push button.)
-trigger for special? (purplah!)
+LED Button
+
 On off switch
+
 Three appropriate screws. 
