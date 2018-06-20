@@ -26,8 +26,6 @@
 #include <avr/wdt.h>
 
 
-
-
 /************************************
  * Hardware defined constants.
  * Resist the urge to make these other than literals. The compiler can make literals
@@ -37,6 +35,7 @@
 #define BUTTON 3
 #define CLOCK_PIN 5
 #define DATA_PIN 4
+#define BUTTON_LED 9
 //Unnconnected pin floats, used for random seed noise
 #define UNCONNECTED_PIN 8
 //how many dotstars or equiv
@@ -148,9 +147,13 @@ void randomize_color_array() {
 //}
 
 uint32_t pickRGB() {
-    const uint32_t rgb[3] = { 0xc00000, 0x00c000, 0x0000c0 };
-    uint8_t  colorUp = random(0,3);
-    return rgb[colorUp];
+    const uint32_t rgb[3] = { RED, GREEN, BLUE };
+    if (random(0,100) == 0) return PURPLE;
+
+    //uint8_t  colorUp = random(0,3);
+    //return rgb[colorUp];
+
+    return rgb[random(0,3)];
 }
 
 void mkRGB(short color) {
@@ -233,10 +236,6 @@ void setPixels (Adafruit_DotStar *stars, uint32_t color) {
     stars->setPixelColor(i, color);
   }
 }
-
-
-
-
 
 
 
@@ -375,6 +374,7 @@ void turnOn() {
   deBounce();
   buttonHit = 0;
   start_time = millis();
+  //Serial.print("Turn on");
 }
 
 void turnOff() {
@@ -481,6 +481,25 @@ void setPhase() {
   }
 }
 
+//int on = 20;
+void button_led_throbber() {
+  static int led_on = 20;
+  int cycle = 128;
+  int bottom = 5;
+  static int adder = 1;
+  // Serial.print("on: ");
+  // Serial.print(led_on);
+  // Serial.print(" adder: ");
+  // Serial.print(adder);
+  // Serial.print("\n");
+  led_on += adder;
+  if (led_on >= cycle || led_on <= bottom) {
+    adder *= -1;
+  }
+
+  analogWrite(BUTTON_LED, led_on);
+  delay(20);
+}
 
 /********************************************
  * SETUP
@@ -493,15 +512,14 @@ void setup() {
   lcd.begin(16,2,LCD_5x10DOTS);
 #endif
   dbg_lcdwrite(0,0,"GO");
-  
+  //Serial.begin(115200);
+
   //start_time = millis();
-  
+  pinMode(BUTTON, INPUT_PULLUP); //with pullup, When the signal goes LOW, the button is being pressed
   pinMode(DATA_PIN, OUTPUT);
   pinMode(CLOCK_PIN, OUTPUT);
+  pinMode(BUTTON_LED, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(BUTTON, INPUT_PULLUP); //with pullup, When the signal goes LOW, the button is being pressed
-
-  onP = 0;
   //dbg_lcdwrite(4,0, onP?"T":"F");
   
   current_pixel = 0;
@@ -512,10 +530,13 @@ void setup() {
   last_color = pickRGB();
 
   pack.begin();
-  pack.setBrightness(HiThr/2);
+  pack.setBrightness(250);
   pack.show();
+  delay(.5);
   //This is down here to put a tiny delay between setting the pin mode and attaching the interrupt
-  attachInterrupt(digitalPinToInterrupt(BUTTON), handleStopStartButton, FALLING);
+  attachInterrupt(digitalPinToInterrupt(BUTTON), handleStopStartButton, LOW);
+  onP = 0;
+  //Serial.print("Going");
 }
 
 
@@ -543,6 +564,8 @@ void reset() {
     last_color = pickRGB();
 }
 
+short led_on = 20;
+short adder = 1;
 /*******************************************
  * LOOP
  */
@@ -560,13 +583,33 @@ void loop() {
   // If turned off 
   } else {
     //clean up if canceled
+    //button_led_throbber();
     if (!cleared) {
       //reset();
       cleared = true;
       flash_diag(2);
       //sleep_enable();
       //sleep_cpu();
-    }
+    } 
+  
+    button_led_throbber();
+  //short led_on = 20;
+  // short cycle = 30;
+  // short bottom = 5;
+  // Serial.print("on: ");
+  // Serial.print(led_on);
+  // Serial.print(" adder: ");
+  // Serial.print(adder);
+  // Serial.print("\n");
+  // led_on += adder;
+  // if (led_on >= cycle || led_on <= bottom) {
+  //   adder *= -1;
+  // }
+
+  // digitalWrite(BUTTON_LED, HIGH);
+  // delay(led_on);
+  // digitalWrite(BUTTON_LED, LOW);
+  // delay(cycle - led_on);
   }
 
   loop_count++;
