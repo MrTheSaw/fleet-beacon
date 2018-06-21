@@ -6,12 +6,12 @@
                 "/Users/hacksaw/Documents/Arduino/libraries/Adafruit_DotStar/",
                 "/Applications/Arduino.app/Contents/Java/libraries/LiquidCrystal/src/",
                 "/Applications/Arduino.app/Contents/Java/hardware/tools/avr/avr/include/",
-                "/Applications/Arduino.app/Contents/Java/hardware/tools/avr/lib/avr-gcc/7/gcc/avr/7.3.0/include",
+                "/Applications/Arduino.app/Contents/Java/hardware/tools/avr/lib/avr-gcc/7/gcc/avr/7.3.0/include/",
                 "/Applications/Arduino.app/Contents/Java/hardware/tools/avr/lib/gcc/avr/4.9.2/include/",
-                "/Applications/Arduino.app/Contents/Java/hardware/tools/avr/lib/gcc/avr/4.9.2/include-fixed",
+                "/Applications/Arduino.app/Contents/Java/hardware/tools/avr/lib/gcc/avr/4.9.2/include-fixed/",
                 "/Applications/Arduino.app/Contents/Java/hardware/tools/avr/include/",
                 "/Applications/Arduino.app/Contents/Java/hardware/arduino/avr/cores/arduino/",
-                "/Applications/Arduino.app/Contents/Java/hardware/arduino/avr/variants/standard"
+                "/Applications/Arduino.app/Contents/Java/hardware/arduino/avr/variants/standard/"
             ],
             "browse": {
                 "limitSymbolsToIncludedHeaders": false,
@@ -27,5 +27,5 @@
             "cppStandard": "c++17"
         }
     ],
-    "version": 3
+    "version": 4
 }

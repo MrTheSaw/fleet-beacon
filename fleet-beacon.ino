@@ -20,7 +20,7 @@
  */
 
 #include <Adafruit_DotStar.h>
-#include <LiquidCrystal.h>
+//#include <LiquidCrystal.h>
 #include <avr/power.h>
 #include <avr/sleep.h>
 #include <avr/wdt.h>
@@ -134,17 +134,6 @@ void randomize_color_array() {
   }
 }
 
-//set one of the bytes to the top threshold.
-//If "definitely" is true, set the other bytes to 0
-//void mkRGB(short color) {
-//    if      (colors[color][0] == HiThr) { colors[color][1] = LoThr; colors[color][2] = LoThr;}
-//    else if (colors[color][1] == HiThr) { colors[color][0] = LoThr; colors[color][2] = LoThr;}
-//    else if (colors[color][2] == HiThr) { colors[color][0] = LoThr; colors[color][1] = LoThr;}
-//    else {
-//      colors[color][random(0,3)] = HiThr;
-//      mkRGB(color);
-//    }
-//}
 
 uint32_t pickRGB() {
     const uint32_t rgb[3] = { RED, GREEN, BLUE };
@@ -207,26 +196,6 @@ void finalBlow(uint32_t color) {
 }
 
 
-
-
-//Select next color
-
-//uint32_t next_color() {
-//  static short r=0,g=0,b=0;
-//  uint8_t  offset = 64;
-//  if (b > 255) {
-//    b=0;
-//    g+=offset;
-//  } else b+=offset;
-//  if (g > 255) {
-//    g=0;
-//    r+=offset;
-//  }
-//  if (r > 255) {
-//    r=g=b=0;
-//  }
-//  return pack.Color(r,g,b);
-//}
 
 /**************
  * sets all pixels to the same color
@@ -329,32 +298,32 @@ void flash_diag(short flashes) {
   delay(120); //make some spacing
 }
 
-void morse_flash(uint8_t  digit) {
-  uint8_t  where = 0;
-  const short dit = 100;
-  const short dah = 3*dit;
-  const short numbers[10][6] = {
-    {dit, dah, dah, dah, dah, -1}, //1
-    {dit, dit, dah, dah, dah, -1},
-    {dit, dit, dit, dah, dah, -1},
-    {dit, dit, dit, dit, dah, -1},
-    {dit, dit, dit, dit, dit, -1}, //5
-    {dah, dit, dit, dit, dit, -1},
-    {dah, dah, dit, dit, dit, -1},
-    {dah, dah, dah, dit, dit, -1},
-    {dah, dah, dah, dah, dit, -1}, //9
-    {dah, dah, dah, dah, dah, -1}  //0
-  };
+// void morse_flash(uint8_t  digit) {
+//   uint8_t  where = 0;
+//   const short dit = 100;
+//   const short dah = 3*dit;
+//   const short numbers[10][6] = {
+//     {dit, dah, dah, dah, dah, -1}, //1
+//     {dit, dit, dah, dah, dah, -1},
+//     {dit, dit, dit, dah, dah, -1},
+//     {dit, dit, dit, dit, dah, -1},
+//     {dit, dit, dit, dit, dit, -1}, //5
+//     {dah, dit, dit, dit, dit, -1},
+//     {dah, dah, dit, dit, dit, -1},
+//     {dah, dah, dah, dit, dit, -1},
+//     {dah, dah, dah, dah, dit, -1}, //9
+//     {dah, dah, dah, dah, dah, -1}  //0
+//   };
 
-  while (numbers[digit][where] != -1) {
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(numbers[digit][where]);
-    digitalWrite(LED_BUILTIN, LOW);
-    where++;
-    delay(dah);
-  }
-  delay(2*dah);
-}
+//   while (numbers[digit][where] != -1) {
+//     digitalWrite(LED_BUILTIN, HIGH);
+//     delay(numbers[digit][where]);
+//     digitalWrite(LED_BUILTIN, LOW);
+//     where++;
+//     delay(dah);
+//   }
+//   delay(2*dah);
+// }
 
 /********************************************
  * Button ISR and helpers
@@ -410,8 +379,8 @@ void deBounce ()
  */
 
 //Phase thresholds
-uint16_t phase_limits[4] = {10000,20000,30000,50000}; //milliseconds from start
-uint8_t phase = 0;
+// uint16_t phase_limits[4] = {10000,20000,30000,50000}; //milliseconds from start
+// uint8_t phase = 0;
 
 
 
@@ -421,20 +390,20 @@ uint8_t phase = 0;
 */
 
 //To be run once at the start of a phase
-void (*(phase_hook[]))() = {
-  [] () { },
-  [] () { },
-  [] () { bigBlow(); },
-  [] () { finalBlow(last_color); }
-};
+// void (*(phase_hook[]))() = {
+//   [] () { },
+//   [] () { },
+//   [] () { bigBlow(); },
+//   [] () { finalBlow(last_color); }
+// };
 
-//To be run on every loop iteration
-void (*(phase_action[]))() = {
-  [] () { hammer(false); playMaxWell(spacing); spacing++; },
-  [] () { hammer(true); playMaxWell(spacing); spacing++; },
-  [] () { playMaxWell(spacing); spacing++; },
-  [] () { dance(&pack, last_color); }
-};
+// //To be run on every loop iteration
+// void (*(phase_action[]))() = {
+//   [] () { hammer(false); playMaxWell(spacing); spacing++; },
+//   [] () { hammer(true); playMaxWell(spacing); spacing++; },
+//   [] () { playMaxWell(spacing); spacing++; },
+//   [] () { dance(&pack, last_color); }
+// };
 
 
 // Action_list_item says do action_list_tem.action() action_list_item.times
@@ -469,17 +438,17 @@ void action_player () {
   }
 }
 
-void setPhase() {
-  if (phase == ((sizeof(phase_limits)/(sizeof(*phase_limits))-1))) { return; }
-  if (millis() - start_time > phase_limits[phase]) {
-    phase++;
-    //dbg_lcdwrite(14,0);)
-    //DBG(lcd.print((sizeof(phase_limits)/(sizeof(*phase_limits))-1));)
-    dbg_lcdwrite(6+phase,0,phase);
-    dbg_lcdwrite(1,1,millis() - start_time);
-    phase_hook[phase]();
-  }
-}
+// void setPhase() {
+//   if (phase == ((sizeof(phase_limits)/(sizeof(*phase_limits))-1))) { return; }
+//   if (millis() - start_time > phase_limits[phase]) {
+//     phase++;
+//     //dbg_lcdwrite(14,0);)
+//     //DBG(lcd.print((sizeof(phase_limits)/(sizeof(*phase_limits))-1));)
+//     dbg_lcdwrite(6+phase,0,phase);
+//     dbg_lcdwrite(1,1,millis() - start_time);
+//     phase_hook[phase]();
+//   }
+// }
 
 //int on = 20;
 void button_led_throbber() {
@@ -487,11 +456,7 @@ void button_led_throbber() {
   int cycle = 128;
   int bottom = 5;
   static int adder = 1;
-  // Serial.print("on: ");
-  // Serial.print(led_on);
-  // Serial.print(" adder: ");
-  // Serial.print(adder);
-  // Serial.print("\n");
+  
   led_on += adder;
   if (led_on >= cycle || led_on <= bottom) {
     adder *= -1;
@@ -512,15 +477,13 @@ void setup() {
   lcd.begin(16,2,LCD_5x10DOTS);
 #endif
   dbg_lcdwrite(0,0,"GO");
-  //Serial.begin(115200);
-
-  //start_time = millis();
+  
   pinMode(BUTTON, INPUT_PULLUP); //with pullup, When the signal goes LOW, the button is being pressed
   pinMode(DATA_PIN, OUTPUT);
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(BUTTON_LED, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
-  //dbg_lcdwrite(4,0, onP?"T":"F");
+
   
   current_pixel = 0;
   MWindex = 0;
@@ -532,11 +495,10 @@ void setup() {
   pack.begin();
   pack.setBrightness(250);
   pack.show();
-  delay(.5);
+  //delay(.5);
   //This is down here to put a tiny delay between setting the pin mode and attaching the interrupt
-  attachInterrupt(digitalPinToInterrupt(BUTTON), handleStopStartButton, LOW);
+  attachInterrupt(digitalPinToInterrupt(BUTTON), handleStopStartButton, LOW); 
   onP = 0;
-  //Serial.print("Going");
 }
 
 
@@ -555,7 +517,7 @@ void reset() {
     onP = 0;
     dbg_lcdwrite(1,1,start_time);
 
-    phase = 0;
+    //phase = 0;
     dbg_lcdwrite(0,1,"R");
     pack.clear();
     pack.show();
@@ -579,8 +541,7 @@ void loop() {
 
     cleared = false;
     action_player();
-    //phase_action[phase]();
-    //setPhase();
+
   // If turned off 
   } else {
     //clean up if canceled
@@ -594,23 +555,7 @@ void loop() {
     } 
   
     button_led_throbber();
-  //short led_on = 20;
-  // short cycle = 30;
-  // short bottom = 5;
-  // Serial.print("on: ");
-  // Serial.print(led_on);
-  // Serial.print(" adder: ");
-  // Serial.print(adder);
-  // Serial.print("\n");
-  // led_on += adder;
-  // if (led_on >= cycle || led_on <= bottom) {
-  //   adder *= -1;
-  // }
-
-  // digitalWrite(BUTTON_LED, HIGH);
-  // delay(led_on);
-  // digitalWrite(BUTTON_LED, LOW);
-  // delay(cycle - led_on);
+  
   }
 
   loop_count++;
