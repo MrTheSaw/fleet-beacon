@@ -1,6 +1,6 @@
 # fleet-beacon
 **Software to flash Dotstar/Lumenati array with an Arduino-like controller.**
-
+*Version: Ahahahaha, sure, ah, let's call it version .9 BETA*
 
 The project started as a learning experience and to replace a quickly made, python/RaspberryPi based flashy thing with a cheaper device, freeing up the RPi for duties more appropriate to a full fledged general computing device.
 
