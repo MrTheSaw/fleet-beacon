@@ -137,11 +137,6 @@ void randomize_color_array() {
 
 uint32_t pickRGB() {
     const uint32_t rgb[3] = { RED, GREEN, BLUE };
-    if (random(0,100) == 0) return PURPLE;
-
-    //uint8_t  colorUp = random(0,3);
-    //return rgb[colorUp];
-
     return rgb[random(0,3)];
 }
 
@@ -373,37 +368,6 @@ void deBounce ()
 
 
 
-/*****************************************************************************************
- * ***************************************************************************************
- * Run phase handling. This is where the actions and hooks are dispatched.
- */
-
-//Phase thresholds
-// uint16_t phase_limits[4] = {10000,20000,30000,50000}; //milliseconds from start
-// uint8_t phase = 0;
-
-
-
-/************************************************
- * phase_hook and phase_action are vectors of lambdas. The number of members
- *  each corresponds to the phases demarcated in the phase_limits.
-*/
-
-//To be run once at the start of a phase
-// void (*(phase_hook[]))() = {
-//   [] () { },
-//   [] () { },
-//   [] () { bigBlow(); },
-//   [] () { finalBlow(last_color); }
-// };
-
-// //To be run on every loop iteration
-// void (*(phase_action[]))() = {
-//   [] () { hammer(false); playMaxWell(spacing); spacing++; },
-//   [] () { hammer(true); playMaxWell(spacing); spacing++; },
-//   [] () { playMaxWell(spacing); spacing++; },
-//   [] () { dance(&pack, last_color); }
-// };
 
 
 // Action_list_item says do action_list_tem.action() action_list_item.times
@@ -438,17 +402,6 @@ void action_player () {
   }
 }
 
-// void setPhase() {
-//   if (phase == ((sizeof(phase_limits)/(sizeof(*phase_limits))-1))) { return; }
-//   if (millis() - start_time > phase_limits[phase]) {
-//     phase++;
-//     //dbg_lcdwrite(14,0);)
-//     //DBG(lcd.print((sizeof(phase_limits)/(sizeof(*phase_limits))-1));)
-//     dbg_lcdwrite(6+phase,0,phase);
-//     dbg_lcdwrite(1,1,millis() - start_time);
-//     phase_hook[phase]();
-//   }
-// }
 
 //int on = 20;
 void button_led_throbber() {
